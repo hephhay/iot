@@ -27,10 +27,11 @@ let adminClients: WebSocket[] = [];
 
 // Create an HTTP server
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: "ws" });
+const wss = new WebSocketServer({server});
 
 // Handle WebSocket connections
 wss.on('connection', (ws, req) => {
+  console.log('new connection', req.url)
   const url = req.url;
 
   // Handle client connections
@@ -69,6 +70,9 @@ wss.on('connection', (ws, req) => {
         await collection.insertMany([{ tankid, ...data[tankid] }]);
 
         // Broadcast data to connected clients for the same tankid
+        if (!clients[tankid]) {
+          clients[tankid] = [];
+        }
         clients[tankid].forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({ [tankid]: data[tankid] }));
@@ -84,6 +88,10 @@ wss.on('connection', (ws, req) => {
       }
     });
   }
+  // Handle unknown connections
+  else {
+    ws.close();
+  }
 });
 
 // Handle REST API requests
@@ -94,7 +102,8 @@ app.get('/tanks', async (req: Request, res: Response) => {
 });
 
 server.listen(process.env.PORT || 3000, async () => {
-  console.log('Server is running on port 3000');
   mongoClient = await MongoClient.connect(mongoUrl);
   console.log('Connected to MongoDB');
+  db = mongoClient.db();
+  console.log('Server is running on port 3000');
 });
