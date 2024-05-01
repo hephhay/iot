@@ -9,13 +9,13 @@ const mongoUrl = process.env.MONGO_URL!;
 
 const userData = z.object({
   action: z.string(),
-  tank_id: z.string(),
+  tank_id: z.number().int(),
   refill: z.boolean()
 });
 
 // type for tank data
 const TankData = z.object({
-    tank_id: z.string(),
+    tank_id: z.number().int(),
     initial_level: z.number(),
     current_level: z.number(),
     refilling: z.boolean(),
