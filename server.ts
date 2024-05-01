@@ -115,7 +115,7 @@ wss.on('connection', (ws, req) => {
         // Broadcast data to connected admin clients
         adminClients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(tankdata));
+            client.send(JSON.stringify(data));
           }
         });
       }
