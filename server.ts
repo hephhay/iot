@@ -7,6 +7,12 @@ import z from 'zod';
 // MongoDB connection URL
 const mongoUrl = process.env.MONGO_URL!;
 
+const userData = z.object({
+  action: z.string(),
+  tank_id: z.string(),
+  refill: z.boolean()
+});
+
 // type for tank data
 const TankData = z.object({
     tank_id: z.string(),
@@ -31,6 +37,8 @@ const db = mongoClient.db();
 // Clients map (key: tankid, value: WebSocket[])
 const clients: { [tankid: string]: WebSocket[] } = {};
 let adminClients: WebSocket[] = [];
+
+let iotClient: WebSocket | undefined = undefined;
 
 // Create an HTTP server
 const server = http.createServer(app);
@@ -67,10 +75,12 @@ wss.on('connection', (ws, req) => {
   }
   // Handle IoT device connections
   else if (url === '/iot') {
+    iotClient = ws;
     // Handle incoming messages
     ws.on('message', async (message) => {
       console.log('received: %s', message);
-      const iotInputData = (await IOTInput.safeParseAsync(JSON.parse(message.toString())));
+      const iotInputData = (
+        await IOTInput.safeParseAsync(JSON.parse(message.toString())));
 
       const tankData = iotInputData.data;
       if (!tankData) {
@@ -117,6 +127,9 @@ wss.on('connection', (ws, req) => {
   }
 });
 
+// Set up Json body parser
+app.use(express.json());
+
 // Handle REST API requests
 app.get('/tanks', async (req, res) => {
   const collection = db.collection('tanks');
@@ -128,6 +141,41 @@ app.get('/tanks', async (req, res) => {
 app.get('/', async(req, res) => {
   res.json({status: "okay"})
 })
+
+app.post('/tanks', async (req, res) => {
+  const data = req.body;
+  console.log('received:', data);
+  const inputData = (await userData.safeParseAsync(data));
+
+  if (!inputData.data) {
+    console.error('Invalid data', inputData.error.message);
+    res.status(422).json({
+      status: "error",
+      message: "Invalid data",
+      details: inputData.error
+    });
+    return;
+  }
+
+  if (!iotClient) {
+    res.status(400).json({
+      status: "error",
+      message: "IoT device not connected"
+    });
+    return;
+  }
+
+  iotClient.send(JSON.stringify(data));
+  res.json({status: "success"});
+});
+
+//404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    status: "error",
+    message: "Not found"
+  });
+});
 
 server.listen(process.env.PORT || 3000, async () => {
   console.log('Server is running on port 3000');
