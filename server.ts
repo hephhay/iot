@@ -38,7 +38,7 @@ const db = mongoClient.db();
 const clients: { [tankid: string]: WebSocket[] } = {};
 let adminClients: WebSocket[] = [];
 
-let iotClient: WebSocket | undefined = undefined;
+let iotClients: WebSocket[] = [];
 
 // Create an HTTP server
 const server = http.createServer(app);
@@ -75,7 +75,7 @@ wss.on('connection', (ws, req) => {
   }
   // Handle IoT device connections
   else if (url === '/iot') {
-    iotClient = ws;
+    iotClients.push(ws);
     // Handle incoming messages
     ws.on('message', async (message) => {
       console.log('received: %s', message);
@@ -119,6 +119,11 @@ wss.on('connection', (ws, req) => {
           }
         });
       }
+
+    });
+
+    ws.on('close', () => {
+      iotClients = iotClients.filter((c) => c !== ws);
     });
   }
   // Handle unknown connections
@@ -157,7 +162,7 @@ app.post('/tanks', async (req, res) => {
     return;
   }
 
-  if (!iotClient) {
+  if (iotClients.length === 0) {
     res.status(400).json({
       status: "error",
       message: "IoT device not connected"
@@ -165,7 +170,11 @@ app.post('/tanks', async (req, res) => {
     return;
   }
 
-  iotClient.send(JSON.stringify(data));
+  iotClients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(data));
+    }
+  });
   res.json({status: "success"});
 });
 
