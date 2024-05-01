@@ -1,7 +1,7 @@
 import express from 'express';
 import WebSocket, { WebSocketServer } from 'ws';
 import http from 'http';
-import { MongoClient } from 'mongodb';
+import { MongoClient, Timestamp } from 'mongodb';
 import z from 'zod';
 
 // MongoDB connection URL
@@ -19,7 +19,10 @@ const TankData = z.object({
     initial_level: z.number(),
     current_level: z.number(),
     refilling: z.boolean(),
-});
+}).refine(data => ({
+  ...data,
+  timeStamp: new Date().toISOString()
+}));
 
 const IOTInput = z.object({
   action: z.string(),
@@ -80,7 +83,8 @@ wss.on('connection', (ws, req) => {
     ws.on('message', async (message) => {
       console.log('received: %s', message);
       const iotInputData = (
-        await IOTInput.safeParseAsync(JSON.parse(message.toString())));
+        await IOTInput.safeParseAsync(JSON.parse(message.toString()))
+      );
 
       const tankData = iotInputData.data;
       if (!tankData) {
@@ -94,6 +98,7 @@ wss.on('connection', (ws, req) => {
         return;
       }
 
+      // array data from iot device
       const data = tankData.tanks_info;
       const collection = db.collection('tanks');
 
@@ -119,7 +124,6 @@ wss.on('connection', (ws, req) => {
           }
         });
       }
-
     });
 
     ws.on('close', () => {
@@ -177,6 +181,13 @@ app.post('/tanks', async (req, res) => {
   });
   res.json({status: "success"});
 });
+
+app.delete('/clear', async (req, res) => {
+  await db.dropCollection('tanks');
+  return res.json({
+    status: "success"
+  });
+})
 
 //404 handler
 app.use((req, res) => {
