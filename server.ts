@@ -11,7 +11,7 @@ const userData = z.object({
   action: z.string(),
   entity: z.string(),
   tank_id: z.number().int(),
-  refill: z.boolean()
+  refilling: z.boolean()
 });
 
 // type for tank data
