@@ -9,6 +9,7 @@ const mongoUrl = process.env.MONGO_URL!;
 
 const userData = z.object({
   action: z.string(),
+  entity: z.string(),
   tank_id: z.number().int(),
   refill: z.boolean()
 });
